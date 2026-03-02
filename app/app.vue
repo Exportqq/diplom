@@ -1,273 +1,444 @@
 <template>
   <div class="container">
-    <h1 class="title">Финансовый сервис малого бизнеса</h1>
+    <h1 class="title">Сервис малого бизнеса с графиками</h1>
 
-    <!-- Форма добавления транзакции -->
-    <section class="card">
-      <h2>Добавить транзакцию</h2>
-      <form @submit.prevent="addTransaction" class="form">
-        <input
-          v-model="newTransaction.name"
-          type="text"
-          placeholder="Описание"
-        />
-        <input
-          v-model.number="newTransaction.amount"
-          type="number"
-          placeholder="Сумма"
-        />
-        <select v-model="newTransaction.type">
-          <option value="income">Доход</option>
-          <option value="expense">Расход</option>
-        </select>
-        <input v-model="newTransaction.date" type="date" />
-        <button type="submit" class="btn btn-add">Добавить</button>
-      </form>
-    </section>
-
-    <!-- Фильтры -->
-    <section class="filters">
-      <button @click="setFilter('all')" :class="filterButton('all')">
-        Все
+    <!-- Tabs -->
+    <div class="tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab"
+        @click="activeTab = tab"
+        :class="['tab-btn', activeTab === tab ? 'active' : '']"
+      >
+        {{ tab }}
       </button>
-      <button @click="setFilter('income')" :class="filterButton('income')">
-        Доходы
-      </button>
-      <button @click="setFilter('expense')" :class="filterButton('expense')">
-        Расходы
-      </button>
-    </section>
+    </div>
 
-    <!-- Таблица транзакций -->
-    <section class="card">
-      <table class="transactions">
-        <thead>
-          <tr>
-            <th>Дата</th>
-            <th>Описание</th>
-            <th>Сумма</th>
-            <th>Тип</th>
-            <th>Действие</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="t in filteredTransactions" :key="t.id">
-            <td>{{ t.date }}</td>
-            <td>{{ t.name }}</td>
-            <td>{{ t.amount }}</td>
-            <td>{{ t.type }}</td>
-            <td>
-              <button @click="deleteTransaction(t.id)" class="btn btn-delete">
-                Удалить
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+    <div class="tab-content">
+      <!-- Финансы -->
+      <section v-if="activeTab === 'Финансы'" class="card">
+        <h2>Транзакции</h2>
+        <form @submit.prevent="addTransaction" class="form">
+          <input
+            v-model="newTransaction.name"
+            placeholder="Описание"
+            required
+          />
+          <input
+            v-model.number="newTransaction.amount"
+            type="number"
+            placeholder="Сумма"
+            required
+          />
+          <select v-model="newTransaction.type">
+            <option value="income">Доход</option>
+            <option value="expense">Расход</option>
+          </select>
+          <select v-model="newTransaction.category">
+            <option v-for="cat in categories" :key="cat.id" :value="cat.name">
+              {{ cat.name }} ({{ cat.type }})
+            </option>
+          </select>
+          <button type="submit" class="btn btn-add">Добавить</button>
+        </form>
 
-    <!-- Финансовая аналитика -->
-    <section class="card analytics">
-      <h2>Финансовая аналитика</h2>
-      <p>
-        Общий доход: <span class="income">{{ totalIncome }}</span>
-      </p>
-      <p>
-        Общий расход: <span class="expense">{{ totalExpense }}</span>
-      </p>
-      <p>
-        Прибыль: <span class="profit">{{ profit }}</span>
-      </p>
-    </section>
+        <table class="transactions">
+          <thead>
+            <tr>
+              <th>Описание</th>
+              <th>Сумма</th>
+              <th>Тип</th>
+              <th>Категория</th>
+              <th>Действие</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in transactions" :key="t.id">
+              <td>{{ t.name }}</td>
+              <td>{{ t.amount }}</td>
+              <td>{{ t.type }}</td>
+              <td>{{ t.category }}</td>
+              <td>
+                <button @click="deleteTransaction(t.id)" class="btn btn-delete">
+                  Удалить
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-    <!-- График -->
-    <section class="card">
-      <h2>График доходов и расходов</h2>
-      <canvas ref="chart" height="200"></canvas>
-    </section>
+        <div class="analytics">
+          <div class="card-analytics income-card">Доход: {{ totalIncome }}</div>
+          <div class="card-analytics expense-card">
+            Расход: {{ totalExpense }}
+          </div>
+          <div class="card-analytics profit-card">
+            Прибыль: {{ totalProfit }}
+          </div>
+        </div>
 
-    <!-- Экспорт/Импорт -->
-    <section class="card">
-      <h2>Экспорт / Импорт</h2>
-      <button @click="exportData" class="btn btn-export">Экспорт JSON</button>
-      <input type="file" @change="importData" class="file-input" />
-    </section>
+        <!-- Графики -->
+        <div class="charts">
+          <canvas id="incomeChart"></canvas>
+          <canvas id="expenseChart"></canvas>
+        </div>
+      </section>
+
+      <!-- Клиенты -->
+      <section v-if="activeTab === 'Клиенты'" class="card">
+        <h2>Клиенты</h2>
+        <form @submit.prevent="addClient" class="form">
+          <input v-model="newClient.name" placeholder="Имя клиента" required />
+          <input v-model="newClient.contact" placeholder="Контакт" />
+          <button type="submit" class="btn btn-add">Добавить клиента</button>
+        </form>
+        <ul class="client-list">
+          <li v-for="c in clients" :key="c.id">
+            {{ c.name }} — {{ c.contact }}
+            <button @click="deleteClient(c.id)" class="btn btn-delete">
+              Удалить
+            </button>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Категории -->
+      <section v-if="activeTab === 'Категории'" class="card">
+        <h2>Категории</h2>
+        <form @submit.prevent="addCategory" class="form">
+          <input
+            v-model="newCategory.name"
+            placeholder="Название категории"
+            required
+          />
+          <select v-model="newCategory.type">
+            <option value="income">Доход</option>
+            <option value="expense">Расход</option>
+          </select>
+          <button type="submit" class="btn btn-add">Добавить категорию</button>
+        </form>
+        <ul class="category-list">
+          <li v-for="cat in categories" :key="cat.id">
+            {{ cat.name }} — {{ cat.type }}
+            <button @click="deleteCategory(cat.id)" class="btn btn-delete">
+              Удалить
+            </button>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Задачи -->
+      <section v-if="activeTab === 'Задачи'" class="card">
+        <h2>Задачи</h2>
+        <form @submit.prevent="addTask" class="form">
+          <input
+            v-model="newTask.name"
+            placeholder="Название задачи"
+            required
+          />
+          <select v-model="newTask.status">
+            <option value="pending">В ожидании</option>
+            <option value="done">Выполнено</option>
+          </select>
+          <button type="submit" class="btn btn-add">Добавить задачу</button>
+        </form>
+        <ul class="task-list">
+          <li v-for="t in tasks" :key="t.id">
+            {{ t.name }} — {{ t.status }}
+            <button @click="deleteTask(t.id)" class="btn btn-delete">
+              Удалить
+            </button>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Товары/Инвентарь -->
+      <section v-if="activeTab === 'Товары'" class="card">
+        <h2>Товары / Услуги</h2>
+        <form @submit.prevent="addItem" class="form">
+          <input
+            v-model="newItem.name"
+            placeholder="Название товара/услуги"
+            required
+          />
+          <input
+            v-model.number="newItem.price"
+            type="number"
+            placeholder="Цена"
+            required
+          />
+          <input
+            v-model.number="newItem.stock"
+            type="number"
+            placeholder="Количество"
+            required
+          />
+          <select v-model="newItem.category">
+            <option v-for="cat in categories" :key="cat.id" :value="cat.name">
+              {{ cat.name }}
+            </option>
+          </select>
+          <button type="submit" class="btn btn-add">Добавить товар</button>
+        </form>
+        <ul class="item-list">
+          <li v-for="i in items" :key="i.id">
+            {{ i.name }} — {{ i.price }}₽ — {{ i.stock }} шт — {{ i.category }}
+            <button @click="deleteItem(i.id)" class="btn btn-delete">
+              Удалить
+            </button>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Заказы -->
+      <section v-if="activeTab === 'Заказы'" class="card">
+        <h2>Заказы</h2>
+        <form @submit.prevent="addOrder" class="form">
+          <select v-model="newOrder.client">
+            <option v-for="c in clients" :key="c.id" :value="c.name">
+              {{ c.name }}
+            </option>
+          </select>
+          <select v-model="newOrder.item">
+            <option v-for="i in items" :key="i.id" :value="i.name">
+              {{ i.name }}
+            </option>
+          </select>
+          <input
+            v-model.number="newOrder.quantity"
+            type="number"
+            placeholder="Количество"
+            required
+          />
+          <button type="submit" class="btn btn-add">Добавить заказ</button>
+        </form>
+        <ul class="order-list">
+          <li v-for="o in orders" :key="o.id">
+            Клиент: {{ o.client }}, Товар: {{ o.item }}, Кол-во:
+            {{ o.quantity }}, Итог: {{ o.total }}₽
+            <button @click="deleteOrder(o.id)" class="btn btn-delete">
+              Удалить
+            </button>
+          </li>
+        </ul>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, onMounted } from "vue";
+import { openDB } from "idb";
+import Chart from "chart.js/auto";
+
+const tabs = ["Финансы", "Клиенты", "Категории", "Задачи", "Товары", "Заказы"];
+const activeTab = ref("Финансы");
 
 let db;
-const transactions = ref([]);
+async function initDB() {
+  db = await openDB("businessDB", 1, {
+    upgrade(db) {
+      db.createObjectStore("transactions", { keyPath: "id" });
+      db.createObjectStore("clients", { keyPath: "id" });
+      db.createObjectStore("categories", { keyPath: "id" });
+      db.createObjectStore("tasks", { keyPath: "id" });
+      db.createObjectStore("items", { keyPath: "id" });
+      db.createObjectStore("orders", { keyPath: "id" });
+    },
+  });
+  loadAll();
+}
+
+const transactions = ref([]),
+  clients = ref([]),
+  categories = ref([]),
+  tasks = ref([]),
+  items = ref([]),
+  orders = ref([]);
+
+// Charts
+let incomeChart = null,
+  expenseChart = null;
+function updateCharts() {
+  const incomeData = {},
+    expenseData = {};
+  transactions.value.forEach((t) => {
+    if (t.type === "income")
+      incomeData[t.category] = (incomeData[t.category] || 0) + t.amount;
+    if (t.type === "expense")
+      expenseData[t.category] = (expenseData[t.category] || 0) + t.amount;
+  });
+  const incomeCtx = document.getElementById("incomeChart");
+  const expenseCtx = document.getElementById("expenseChart");
+  if (incomeChart) incomeChart.destroy();
+  if (expenseChart) expenseChart.destroy();
+  incomeChart = new Chart(incomeCtx, {
+    type: "bar",
+    data: {
+      labels: Object.keys(incomeData),
+      datasets: [
+        {
+          label: "Доходы",
+          data: Object.values(incomeData),
+          backgroundColor: "#34d399",
+        },
+      ],
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } },
+  });
+  expenseChart = new Chart(expenseCtx, {
+    type: "bar",
+    data: {
+      labels: Object.keys(expenseData),
+      datasets: [
+        {
+          label: "Расходы",
+          data: Object.values(expenseData),
+          backgroundColor: "#ef4444",
+        },
+      ],
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } },
+  });
+}
+
+async function loadAll() {
+  transactions.value = await db.getAll("transactions");
+  clients.value = await db.getAll("clients");
+  categories.value = await db.getAll("categories");
+  tasks.value = await db.getAll("tasks");
+  items.value = await db.getAll("items");
+  orders.value = await db.getAll("orders");
+  updateCharts();
+}
+
+// Transactions
 const newTransaction = ref({
   name: "",
   amount: 0,
   type: "income",
-  date: new Date().toISOString().split("T")[0],
+  category: "",
 });
-const filter = ref("all");
-const chart = ref(null);
-let chartInstance = null;
-
-onMounted(async () => {
-  if (process.client) {
-    const { openDB } = await import("idb");
-    const Chart = (await import("chart.js/auto")).default;
-
-    db = await openDB("finance-db", 1, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains("transactions")) {
-          db.createObjectStore("transactions", {
-            keyPath: "id",
-            autoIncrement: true,
-          });
-        }
-      },
-    });
-
-    transactions.value = await db.getAll("transactions");
-    updateChart(Chart);
-  }
-});
-
 async function addTransaction() {
-  if (!process.client) return;
-  if (!newTransaction.value.name || newTransaction.value.amount <= 0) return;
-  const id = await db.add("transactions", { ...newTransaction.value });
-  transactions.value.push({ ...newTransaction.value, id });
-  newTransaction.value = {
-    name: "",
-    amount: 0,
-    type: "income",
-    date: new Date().toISOString().split("T")[0],
-  };
+  const id = Date.now();
+  await db.put("transactions", { ...newTransaction.value, id });
+  newTransaction.value = { name: "", amount: 0, type: "income", category: "" };
+  await loadAll();
 }
-
 async function deleteTransaction(id) {
-  if (!process.client) return;
   await db.delete("transactions", id);
-  transactions.value = transactions.value.filter((t) => t.id !== id);
+  await loadAll();
 }
-
-function setFilter(type) {
-  filter.value = type;
-}
-const filteredTransactions = computed(() => {
-  if (filter.value === "all") return transactions.value;
-  return transactions.value.filter((t) => t.type === filter.value);
-});
-function filterButton(type) {
-  return filter.value === type ? "btn btn-filter-active" : "btn btn-filter";
-}
-
-const totalIncome = computed(() =>
-  transactions.value
+const totalIncome = ref(0),
+  totalExpense = ref(0);
+onMounted(() => {
+  totalIncome.value = transactions.value
     .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0),
-);
-const totalExpense = computed(() =>
-  transactions.value
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0),
-);
-const profit = computed(() => totalIncome.value - totalExpense.value);
-
-function updateChart(Chart) {
-  if (!process.client) return;
-  const labels = transactions.value.map((t) => t.date + " | " + t.name);
-  const incomes = transactions.value.map((t) =>
-    t.type === "income" ? t.amount : 0,
-  );
-  const expenses = transactions.value.map((t) =>
-    t.type === "expense" ? t.amount : 0,
-  );
-
-  if (chartInstance) chartInstance.destroy();
-  chartInstance = new Chart(chart.value, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [
-        { label: "Доход", data: incomes, backgroundColor: "green" },
-        { label: "Расход", data: expenses, backgroundColor: "red" },
-      ],
-    },
-    options: { responsive: true },
-  });
-}
-
-watch(transactions, async () => {
-  if (!process.client) return;
-  const Chart = (await import("chart.js/auto")).default;
-  updateChart(Chart);
+    .reduce((s, t) => s + t.amount, 0);
 });
 
-function exportData() {
-  const dataStr = JSON.stringify(transactions.value, null, 2);
-  const blob = new Blob([dataStr], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "transactions.json";
-  a.click();
-  URL.revokeObjectURL(url);
+// Clients
+const newClient = ref({ name: "", contact: "" });
+async function addClient() {
+  const id = Date.now();
+  await db.put("clients", { ...newClient.value, id });
+  newClient.value = { name: "", contact: "" };
+  await loadAll();
+}
+async function deleteClient(id) {
+  await db.delete("clients", id);
+  await loadAll();
 }
 
-async function importData(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const text = await file.text();
-  const imported = JSON.parse(text);
-  for (const t of imported) {
-    await db.put("transactions", t);
-  }
-  transactions.value = await db.getAll("transactions");
+// Categories
+const newCategory = ref({ name: "", type: "income" });
+async function addCategory() {
+  const id = Date.now();
+  await db.put("categories", { ...newCategory.value, id });
+  newCategory.value = { name: "", type: "income" };
+  await loadAll();
 }
+async function deleteCategory(id) {
+  await db.delete("categories", id);
+  await loadAll();
+}
+
+// Tasks
+const newTask = ref({ name: "", status: "pending" });
+async function addTask() {
+  const id = Date.now();
+  await db.put("tasks", { ...newTask.value, id });
+  newTask.value = { name: "", status: "pending" };
+  await loadAll();
+}
+async function deleteTask(id) {
+  await db.delete("tasks", id);
+  await loadAll();
+}
+
+// Items
+const newItem = ref({ name: "", price: 0, stock: 0, category: "" });
+async function addItem() {
+  const id = Date.now();
+  await db.put("items", { ...newItem.value, id });
+  newItem.value = { name: "", price: 0, stock: 0, category: "" };
+  await loadAll();
+}
+async function deleteItem(id) {
+  await db.delete("items", id);
+  await loadAll();
+}
+
+// Orders
+const newOrder = ref({ client: "", item: "", quantity: 1, total: 0 });
+async function addOrder() {
+  const itemObj = items.value.find((i) => i.name === newOrder.value.item);
+  const total = itemObj ? itemObj.price * newOrder.value.quantity : 0;
+  const id = Date.now();
+  await db.put("orders", { ...newOrder.value, id, total });
+  newOrder.value = { client: "", item: "", quantity: 1, total: 0 };
+  await loadAll();
+}
+
+async function deleteOrder(id) {
+  await db.delete("orders", id);
+  await loadAll();
+}
+
+onMounted(initDB);
 </script>
 
 <style scoped>
-/* Основные стили */
-body,
-html {
-  margin: 0;
-  padding: 0;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: #f0f4f8;
-  color: #333;
-}
 .container {
-  max-width: 1000px;
-  margin: auto;
-  padding: 20px;
+  max-width: 1200px;
+  margin: 20px auto;
+  font-family: "Segoe UI", sans-serif;
+  color: #333;
 }
 .title {
   text-align: center;
-  font-size: 2.5rem;
-  margin-bottom: 30px;
-  color: #1f2937;
-}
-
-/* Карточки */
-.card {
-  background: white;
-  padding: 20px;
+  font-size: 2rem;
   margin-bottom: 20px;
-  border-radius: 15px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  color: #4f46e5;
 }
-
-/* Форма */
+.card {
+  background: #fff;
+  padding: 25px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
 .form {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
+  margin-bottom: 10px;
 }
 .form input,
 .form select {
-  padding: 10px;
-  border-radius: 10px;
+  padding: 12px;
+  border-radius: 12px;
   border: 1px solid #ccc;
   outline: none;
   transition: 0.3s;
@@ -275,96 +446,126 @@ html {
 .form input:focus,
 .form select:focus {
   border-color: #4f46e5;
-  box-shadow: 0 0 5px rgba(79, 70, 229, 0.5);
+  box-shadow: 0 0 8px rgba(79, 70, 229, 0.3);
 }
-
-/* Кнопки */
 .btn {
-  padding: 10px 20px;
+  padding: 10px 24px;
   border: none;
   border-radius: 12px;
   cursor: pointer;
   font-weight: bold;
   transition: 0.3s;
+  margin: 2px;
 }
 .btn:hover {
   transform: scale(1.05);
 }
 .btn-add {
   background: linear-gradient(to right, #4f46e5, #3b82f6);
-  color: white;
+  color: #fff;
 }
 .btn-delete {
   background: #ef4444;
-  color: white;
+  color: #fff;
 }
-.btn-export {
-  background: #22c55e;
-  color: white;
-}
-
-/* Фильтры */
-.filters {
+.tabs {
   display: flex;
-  justify-content: center;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
-.btn-filter {
+.tab-btn {
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  cursor: pointer;
   background: #e5e7eb;
-  color: #1f2937;
+  transition: 0.3s;
 }
-.btn-filter-active {
+.tab-btn.active {
   background: #4f46e5;
-  color: white;
+  color: #fff;
+  border-color: #4f46e5;
 }
-
-/* Таблица */
+.charts {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+canvas {
+  max-width: 400px;
+  max-height: 300px;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+}
 .transactions {
   width: 100%;
   border-collapse: collapse;
-  text-align: left;
+  margin-top: 10px;
 }
 .transactions th,
 .transactions td {
-  padding: 12px;
-  border-bottom: 1px solid #ddd;
-}
-.transactions tr:hover {
-  background: #f1f5f9;
-}
-
-/* Аналитика */
-.analytics span {
-  font-weight: bold;
-}
-.income {
-  color: green;
-}
-.expense {
-  color: red;
-}
-.profit {
-  color: blue;
-}
-
-/* Файл инпут */
-.file-input {
+  border: 1px solid #ddd;
   padding: 8px;
-  border-radius: 10px;
-  border: 1px solid #ccc;
+  text-align: left;
 }
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .form input,
-  .form select,
-  .btn-add {
-    width: 100%;
-  }
-  .transactions th,
-  .transactions td {
-    padding: 8px;
-  }
+.analytics {
+  display: flex;
+  gap: 12px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+.card-analytics {
+  flex: 1;
+  padding: 20px;
+  border-radius: 16px;
+  color: #fff;
+  text-align: center;
+  font-weight: bold;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+  transition: 0.3s;
+}
+.card-analytics:hover {
+  transform: scale(1.05);
+}
+.income-card {
+  background: linear-gradient(135deg, #10b981, #34d399);
+}
+.expense-card {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+}
+.profit-card {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+}
+.client-list,
+.category-list,
+.task-list,
+.item-list,
+.order-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 12px;
+}
+.client-list li,
+.category-list li,
+.task-list li,
+.item-list li,
+.order-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+  transition: 0.3s;
+}
+.client-list li:hover,
+.category-list li:hover,
+.task-list li:hover,
+.item-list li:hover,
+.order-list li:hover {
+  background: #f9fafb;
 }
 </style>
